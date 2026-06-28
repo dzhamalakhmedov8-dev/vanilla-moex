@@ -1,5 +1,7 @@
 # Vanilla MOEX
 
+[![checks](https://github.com/dzhamalakhmedov8-dev/vanilla-moex/actions/workflows/checks.yml/badge.svg)](https://github.com/dzhamalakhmedov8-dev/vanilla-moex/actions/workflows/checks.yml)
+
 Учебный Python-проект для демонстрации двух вещей:
 
 - отправка одной лимитной заявки в RabbitMQ-песочницу MOEX;
