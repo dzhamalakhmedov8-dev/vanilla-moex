@@ -1,0 +1,25 @@
+[{
+  "_id": {
+    "$oid": "6a196add0654bc3a14b6bb67"
+  },
+  "SECID": "CNYRUB_TOM",
+  "BOARDID": "CETS",
+  "SHORTNAME": "CNYRUB_TOM",
+  "LOTSIZE": 1000,
+  "SETTLEDATE": "2026-06-01",
+  "DECIMALS": 5,
+  "FACEVALUE": 1,
+  "MARKETCODE": "CURR",
+  "MINSTEP": 0.0005,
+  "PREVDATE": "2026-05-28",
+  "SECNAME": "CNY/RUB_TOM - CNY/РУБ",
+  "REMARKS": null,
+  "STATUS": "A",
+  "FACEUNIT": "CNY",
+  "PREVPRICE": 10.46,
+  "PREVWAPRICE": 10.4462,
+  "CURRENCYID": "RUB",
+  "LATNAME": "CNY/RUB_TOM - CNY/RUB",
+  "LOTDIVIDER": 1,
+  "update_time": "2026-05-29 13:30:53.639216"
+}]

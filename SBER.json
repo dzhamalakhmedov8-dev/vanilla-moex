@@ -1,0 +1,35 @@
+[{
+  "_id": {
+    "$oid": "6a196add0654bc3a14b6bcd3"
+  },
+  "SECID": "SBER",
+  "BOARDID": "TQBR",
+  "SHORTNAME": "Сбербанк",
+  "PREVPRICE": 322.3,
+  "LOTSIZE": 1,
+  "FACEVALUE": 3,
+  "STATUS": "A",
+  "BOARDNAME": "Т+: Акции и ДР - безадрес.",
+  "DECIMALS": 2,
+  "SECNAME": "Сбербанк России ПАО ао",
+  "REMARKS": null,
+  "MARKETCODE": "FNDT",
+  "INSTRID": "EQIN",
+  "SECTORID": null,
+  "MINSTEP": 0.01,
+  "PREVWAPRICE": 322.71,
+  "FACEUNIT": "SUR",
+  "PREVDATE": "2026-05-28",
+  "ISSUESIZE": {
+    "$numberLong": "21586948000"
+  },
+  "ISIN": "RU0009029540",
+  "LATNAME": "Sberbank",
+  "REGNUMBER": "10301481B",
+  "PREVLEGALCLOSEPRICE": 322.3,
+  "CURRENCYID": "SUR",
+  "SECTYPE": "1",
+  "LISTLEVEL": 1,
+  "SETTLEDATE": "2026-06-01",
+  "update_time": "2026-05-29 13:30:53.710650"
+}]

@@ -1,0 +1,37 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.env
+.agents/
+.codex/
+reports/
+
+# Local course/source materials are useful in the workspace, but not in the
+# public demo repository.
+00_*.md
+01_*.md
+02_*.md
+03_*.md
+04_*.md
+05_*.md
+06_*.md
+07_*.md
+08_*.md
+09_*.md
+10_*.md
+11_*.md
+12_*.md
+13_*.md
+14_*.md
+15_*.md
+16_*.md
+17_*.md
+18_*.md
+19_*.md
+algo-mipt-14052026.pdf
+astra.large-v3.cleaned.txt
+vanilla.md
