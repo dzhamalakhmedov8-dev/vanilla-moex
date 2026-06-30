@@ -211,25 +211,6 @@ async def wait_market_data(mode, side, state, event, timeout, callback_error=Non
         await asyncio.wait_for(event.wait(), timeout=left)
 
 
-async def wait_trades_quiet(event, quiet_timeout, max_wait, callback_error=None):
-    if quiet_timeout <= 0:
-        return
-
-    callback_error = callback_error or {}
-    loop = asyncio.get_running_loop()
-    deadline = loop.time() + max_wait
-    while True:
-        raise_callback_error(callback_error)
-        event.clear()
-        left = deadline - loop.time()
-        if left <= 0:
-            return
-        try:
-            await asyncio.wait_for(event.wait(), timeout=min(quiet_timeout, left))
-        except asyncio.TimeoutError:
-            return
-
-
 async def declare_queue(channel, owner, ticker, kind):
     name = f"{owner}_{ticker.lower()}_{kind}_{uuid.uuid4().hex[:8]}"
     return await channel.declare_queue(
@@ -243,7 +224,7 @@ async def declare_queue(channel, owner, ticker, kind):
 
 async def run_live(args, aio_pika_module=None):
     if not args.rabbit_url:
-        raise UserInputError("для --live задайте RABBITMQ_URL или --rabbit-url")
+        raise UserInputError("для live-запуска задайте RABBITMQ_URL или --rabbit-url")
     if aio_pika_module is None:
         try:
             import aio_pika as aio_pika_module
@@ -259,7 +240,6 @@ async def run_live(args, aio_pika_module=None):
 
     state = new_runtime_state()
     market_event = asyncio.Event()
-    trade_event = asyncio.Event()
     order_id_event = asyncio.Event()
     final_status_event = asyncio.Event()
     callback_error = {"error": None}
@@ -309,8 +289,8 @@ async def run_live(args, aio_pika_module=None):
         try:
             async with message.process(requeue=False):
                 data = parse_json_message(message)
-                if data and apply_trade(state, instrument, data):
-                    trade_event.set()
+                if data:
+                    apply_trade(state, instrument, data)
         except Exception as error:
             remember_callback_error(error)
 
@@ -356,15 +336,11 @@ async def run_live(args, aio_pika_module=None):
             routing_key="locko.place",
         )
 
-        print(
-            f"Отправлена заявка {strategy_id}: {instrument.security_id}, {side}, {qty} лотов по {price}",
-            file=sys.stderr,
-        )
         await asyncio.wait_for(order_id_event.wait(), timeout=args.timeout)
         raise_callback_error(callback_error)
         await asyncio.wait_for(final_status_event.wait(), timeout=args.timeout)
         raise_callback_error(callback_error)
-        await wait_trades_quiet(trade_event, args.trade_grace, args.trade_max_wait, callback_error)
+        await asyncio.sleep(1.0)
 
         print(result_line(instrument, side, state["order_id"], state["status"], state["trades"]))
         return 0
@@ -397,12 +373,8 @@ def build_parser():
     parser.add_argument("--client-code", default=os.getenv("VANILLA_CLIENT_CODE", "MIPT"))
     parser.add_argument("--timeout", type=float, default=600.0)
     parser.add_argument("--startup-timeout", type=float, default=120.0)
-    parser.add_argument("--trade-grace", type=float, default=1.0, help="сколько ждать тишину по трейдам после финального статуса")
-    parser.add_argument("--trade-max-wait", type=float, default=5.0, help="максимальное ожидание поздних трейдов после финального статуса")
     parser.add_argument("--data-dir", type=Path, default=Path(__file__).resolve().parent)
-    run_mode = parser.add_mutually_exclusive_group()
-    run_mode.add_argument("--live", action="store_true", help="подключиться к RabbitMQ и отправить заявку")
-    run_mode.add_argument("--dry-run", action="store_true", help="только показать заявку; режим по умолчанию")
+    parser.add_argument("--dry-run", action="store_true", help="только показать заявку")
     parser.add_argument("--last-price", type=decimal_arg)
     parser.add_argument("--best-bid", type=decimal_arg)
     parser.add_argument("--best-ask", type=decimal_arg)
@@ -413,9 +385,9 @@ def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        if args.live:
-            return asyncio.run(run_live(args))
-        return run_dry(args)
+        if args.dry_run:
+            return run_dry(args)
+        return asyncio.run(run_live(args))
     except (UserInputError, RuntimeError, TimeoutError, asyncio.TimeoutError) as error:
         print(f"Ошибка: {error}", file=sys.stderr)
         return 2
