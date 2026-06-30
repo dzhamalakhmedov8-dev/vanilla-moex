@@ -12,8 +12,9 @@
 10. Отправить одну лимитную заявку в `sandbox.orders` с routing key `locko.place`.
 11. По `strategyName` получить `orderId`, затем дождаться `Filled` или `Cancelled`.
 12. Собрать сделки по `orderId`, исключая повторы и учитывая сообщения, пришедшие раньше статуса.
-13. Вывести исполненный объём, сумму, среднюю цену и число сделок.
-14. Удалить временные очереди и закрыть соединение.
+13. Дождаться короткой паузы без новых трейдов, чтобы не потерять поздние сообщения после финального статуса.
+14. Вывести одной строкой исполненный объём, сумму, среднюю цену и число сделок.
+15. Удалить временные очереди и закрыть соединение.
 
 ## Примеры
 
@@ -25,6 +26,7 @@
 .\.venv\Scripts\python.exe vanilla_bot.py SBER TQBR --volume 10000 --slippage 0.2 --last-price 322.30
 
 # Явный live-запуск
-$env:RABBITMQ_URL="amqp://user:password@host:5672/"
+$env:RABBITMQ_URL="<rabbitmq-url-from-task>"
+$env:VANILLA_OWNER="dakhmedov"
 .\.venv\Scripts\python.exe vanilla_bot.py SBER TQBR --qty 1 --best-quote --live
 ```

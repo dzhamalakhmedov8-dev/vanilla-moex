@@ -87,7 +87,7 @@ def load_instrument(ticker, market, data_dir=None):
 def normalize_owner(owner):
     value = re.sub(r"[^a-z0-9_]+", "", owner.lower())
     if len(value) < 2:
-        raise UserInputError("owner должен быть латиницей, например serge или ipopov")
+        raise UserInputError("owner должен быть латиницей, например dakhmedov или ipopov")
     return value
 
 
