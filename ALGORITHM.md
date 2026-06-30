@@ -29,10 +29,3 @@ $env:VANILLA_OWNER="dakhmedov"
 .\.venv\Scripts\python.exe vanilla_bot.py SBER TQBR --volume 10000 --slippage 0.2
 .\.venv\Scripts\python.exe vanilla_bot.py CNYRUB_TOM CETS --qty -1 --best-quote
 ```
-
-Для проверки без отправки заявки можно явно добавить `--dry-run` и передать тестовые рыночные данные:
-
-```powershell
-.\.venv\Scripts\python.exe vanilla_bot.py SBER TQBR --qty 1 --price 300 --dry-run
-.\.venv\Scripts\python.exe vanilla_bot.py SBER TQBR --volume 10000 --slippage 0.2 --last-price 322.30 --dry-run
-```
