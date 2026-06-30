@@ -47,6 +47,13 @@ def read_instrument(ticker, market):
     instrument_path = script_dir / filename
     instrument_text = instrument_path.read_text(encoding="utf-8")
     row = json.loads(instrument_text)[0]
+    file_ticker = row.get("SECID")
+    file_market = row.get("BOARDID")
+    if (file_ticker is not None and str(file_ticker).upper() != ticker) or (
+        file_market is not None and str(file_market).upper() != market
+    ):
+        raise ValueError("json-файл описывает другой инструмент")
+
     return {
         "ticker": ticker,
         "market": market,
@@ -143,8 +150,8 @@ def add_trade(state, trade):
 
 
 def move_early_trades(state):
-    # Сделка может прийти раньше статуса с orderId: RabbitMQ не гарантирует порядок между разными очередями.
-    # Поэтому временно складываю такие сделки и переношу их, когда номер заявки уже известен.
+    # Трейды могут прийти раньше статуса с orderId: сообщения идут через разные очереди.
+    # Такие сделки временно сохраняются и разбираются после появления orderId.
     if state["order_id"] is None:
         return
     rest = []
@@ -228,14 +235,11 @@ async def run(args):
         "seen_trades": set(),
     }
 
-    # Event нужен как обычный сигнал: колбэк получил нужные данные и будит основной код.
-    # Так не приходится крутить бесконечный цикл и постоянно проверять state вручную.
     market_event = asyncio.Event()
     order_id_event = asyncio.Event()
     final_status_event = asyncio.Event()
 
-    # Колбэки RabbitMQ выполняются отдельно от основного ожидания.
-    # Если внутри колбэка случилась ошибка, кладём её сюда и будим все ожидания, чтобы run() не завис.
+    # Ошибка из consumer сохраняется здесь, чтобы основное ожидание не висело до таймаута.
     error_box = {"error": None}
     queues = []
     consumers = []
@@ -304,7 +308,6 @@ async def run(args):
                 if trade is None or trade["security"] != instrument["security"]:
                     return
                 if state["order_id"] is None:
-                    # Тут ещё не знаем orderId своей заявки, поэтому пока держим трейд в буфере.
                     state["early_trades"].append(trade)
                     state["early_trades"] = state["early_trades"][-QUEUE_MAX_LEN:]
                 elif trade["order_id"] == state["order_id"]:
@@ -341,8 +344,6 @@ async def run(args):
 
         await wait_market_data(mode, side, state, market_event, STARTUP_TIMEOUT, error_box)
 
-        # Приоритет цены простой: если price задан явно, используем его.
-        # Если нет, считаем цену через slippage; если и его нет, берём лучшую цену из стакана.
         if mode == "price":
             price = args.price
         elif mode == "slippage":
@@ -379,17 +380,14 @@ async def run(args):
         message = aio_pika.Message(body=body, content_type="application/json")
         await orders_exchange.publish(message, routing_key="locko.place")
 
-        wait_order_id = order_id_event.wait()
-        await asyncio.wait_for(wait_order_id, timeout=TIMEOUT)
+        await asyncio.wait_for(order_id_event.wait(), timeout=TIMEOUT)
         if error_box["error"] is not None:
             raise RuntimeError(f"ошибка обработки сообщения RabbitMQ: {error_box['error']}")
-        wait_final_status = final_status_event.wait()
-        await asyncio.wait_for(wait_final_status, timeout=TIMEOUT)
+        await asyncio.wait_for(final_status_event.wait(), timeout=TIMEOUT)
         if error_box["error"] is not None:
             raise RuntimeError(f"ошибка обработки сообщения RabbitMQ: {error_box['error']}")
 
-        # Финальный статус может прийти чуть раньше последней сделки.
-        # Секунда ожидания даёт трейдам догнать статус, но не превращает программу в долгий опрос.
+        # Финальный статус иногда приходит раньше последней сделки; короткая пауза помогает не потерять трейд.
         await asyncio.sleep(TRADE_WAIT_SECONDS)
         print(result_line(instrument, side, state["order_id"], state["status"], state["trades"]))
         return 0
