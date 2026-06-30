@@ -16,8 +16,8 @@ FINISHED = {"Filled", "Cancelled"}
 
 QUEUE_MAX_LEN = 1000
 TRADE_WAIT_SECONDS = 1.0
-ORDER_TIMEOUT = 600.0
-MARKET_TIMEOUT = 120.0
+TIMEOUT = 600.0
+STARTUP_TIMEOUT = 120.0
 
 INSTRUMENT_FILES = {
     ("SBER", "TQBR"): "SBER.json",
@@ -36,14 +36,14 @@ def dec(value):
     return Decimal(str(value))
 
 
-def read_instrument(ticker, market, data_dir):
+def read_instrument(ticker, market):
     ticker = ticker.upper()
     market = market.upper()
     filename = INSTRUMENT_FILES.get((ticker, market))
     if filename is None:
         raise ValueError("поддерживаются только SBER TQBR и CNYRUB_TOM CETS")
 
-    row = json.loads((Path(data_dir) / filename).read_text(encoding="utf-8"))[0]
+    row = json.loads((Path(__file__).resolve().parent / filename).read_text(encoding="utf-8"))[0]
     return {
         "ticker": ticker,
         "market": market,
@@ -114,9 +114,9 @@ def parse_json(message):
 
 
 def parse_trade(data):
-    order_id = data.get("orderid", data.get("orderId"))
-    trade_id = data.get("tradeid", data.get("tradeId"))
-    security = data.get("securityname", data.get("securityName"))
+    order_id = data.get("orderid")
+    trade_id = data.get("tradeid")
+    security = data.get("securityname")
     if None in (order_id, trade_id, security, data.get("price"), data.get("qty")):
         return None
 
@@ -206,7 +206,7 @@ async def run(args):
 
     import aio_pika
 
-    instrument = read_instrument(args.ticker, args.market, args.data_dir)
+    instrument = read_instrument(args.ticker, args.market)
     side = choose_side(args)
     mode = choose_price_mode(args)
     owner = owner_code(args.owner)
@@ -275,7 +275,7 @@ async def run(args):
                 if not data or data.get("strategyName") != order_strategy_id:
                     return
                 state["status"] = data
-                order_id = data.get("orderId", data.get("orderid"))
+                order_id = data.get("orderId")
                 if order_id is not None:
                     state["order_id"] = int(order_id)
                     move_early_trades(state)
@@ -327,7 +327,7 @@ async def run(args):
         consumers.append((ticks_queue, await ticks_queue.consume(on_tick)))
         consumers.append((books_queue, await books_queue.consume(on_orderbook)))
 
-        await wait_market_data(mode, side, state, market_event, args.startup_timeout, error_box)
+        await wait_market_data(mode, side, state, market_event, STARTUP_TIMEOUT, error_box)
 
         if mode == "price":
             price = args.price
@@ -364,10 +364,10 @@ async def run(args):
         body = json.dumps(order, ensure_ascii=False).encode("utf-8")
         await orders_exchange.publish(aio_pika.Message(body=body, content_type="application/json"), routing_key="locko.place")
 
-        await asyncio.wait_for(order_id_event.wait(), timeout=args.timeout)
+        await asyncio.wait_for(order_id_event.wait(), timeout=TIMEOUT)
         if error_box["error"] is not None:
             raise RuntimeError(f"ошибка обработки сообщения RabbitMQ: {error_box['error']}")
-        await asyncio.wait_for(final_status_event.wait(), timeout=args.timeout)
+        await asyncio.wait_for(final_status_event.wait(), timeout=TIMEOUT)
         if error_box["error"] is not None:
             raise RuntimeError(f"ошибка обработки сообщения RabbitMQ: {error_box['error']}")
 
@@ -397,14 +397,11 @@ def build_parser():
     parser.add_argument("--volume", type=decimal_arg, help="сумма в рублях: плюс покупка, минус продажа")
     parser.add_argument("--price", type=decimal_arg, help="фиксированная лимитная цена")
     parser.add_argument("--slippage", type=decimal_arg, help="процент от последней цены")
-    parser.add_argument("--best-quote", "--best_quote", action="store_true", help="лучший ask/bid из стакана")
+    parser.add_argument("--best-quote", dest="best_quote", action="store_true", help="лучший ask/bid из стакана")
     parser.add_argument("--owner", default=os.getenv("VANILLA_OWNER", "dakhmedov"))
     parser.add_argument("--rabbit-url", default=os.getenv("RABBITMQ_URL"))
     parser.add_argument("--portfolio", default=os.getenv("VANILLA_PORTFOLIO", "M01+00000000"))
     parser.add_argument("--client-code", default=os.getenv("VANILLA_CLIENT_CODE", "MIPT"))
-    parser.add_argument("--timeout", type=float, default=ORDER_TIMEOUT)
-    parser.add_argument("--startup-timeout", type=float, default=MARKET_TIMEOUT)
-    parser.add_argument("--data-dir", type=Path, default=Path(__file__).resolve().parent)
     return parser
 
 
